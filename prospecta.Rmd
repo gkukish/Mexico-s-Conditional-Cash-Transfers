@@ -1,0 +1,329 @@
+---
+title: 'Assignment 1: Regression'
+author: "Giorgi Kukishvili"
+date: "2023-02-26"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+
+```{r}
+library(knitr) 
+library(dplyr)
+library(ggplot2)
+library(stats)
+library(arm)
+library(extrafont)
+library(boot)
+library(extrafont)
+library(ggplot2)
+```
+
+
+```{r} 
+progresa <- read.csv("https://tinyurl.com/gkuki-regression-assignment")
+names(progresa)
+tapply(progresa$t2000, progresa$treatment,mean)
+tapply(progresa$pri2000s, progresa$treatment,mean)
+lm1<-lm(t2000~treatment,data=progresa)
+lm1
+lm2<-lm1<-lm(pri2000s~treatment,data=progresa)
+lm2
+```
+
+```{r}
+lm3<-lm(t2000 ~ treatment + avgpoverty+pobtot1994 + votos1994 + pri1994 + pan1994 + prd1994, data=progresa)
+lm3
+lm4<-lm(pri2000s ~ treatment + avgpoverty+pobtot1994 + votos1994 + pri1994 + pan1994 +prd1994, data=progresa)
+lm4
+```
+
+```{r}
+lm5<-lm(t2000 ~ treatment + avgpoverty + log(pobtot1994) + t1994 + pri1994s + pan1994s + 
+    prd1994s, data = progresa)
+lm5
+lm6<-lm(pri2000s ~ treatment + avgpoverty + log(pobtot1994) + t1994 + pri1994s + pan1994s + 
+    prd1994s, data = progresa)
+lm6
+```
+
+``` {r}
+summary(lm1)$adj.r.squared
+summary(lm2)$adj.r.squared
+summary(lm3)$adj.r.squared
+summary(lm4)$adj.r.squared
+summary(lm5)$adj.r.squared
+summary(lm6)$adj.r.squared
+```
+
+#Graded part
+###Setting up the data
+``` {r}
+nrow(progresa) #rows before cleaning
+progresa_clean <- progresa[rowSums(is.na(progresa))==0,] #removing columns that contain NA values using base R // can also be done w dplyr's select_if and mutate functions. I chose this function because it looks cleaner. 
+nrow(progresa_clean) #check if we cleaned
+```
+
+## Exercise 1: 
+### setting up dataframe for histograms
+``` {r}
+ncol(progresa_clean) #col # before mutate
+progresa1 <- progresa_clean %>%
+  mutate(group = ifelse(treatment == 1, "treatment", "control")) 
+ncol(progresa1) #check if the column was added
+```
+
+##Examining the treatment and control group distributions for variable pri1994s
+
+```{r}
+pri1994s_treat <- progresa1$pri1994s[progresa1$treatment == 1] #setting up a dataframe for pri1994s treatment = 1 
+pri1994s_control <- progresa1$pri1994s[progresa1$treatment == 0] #setting up a dataframe for pri1994s treatment = 0
+
+ggplot(data = data.frame(pri1994s_treat), aes(x = pri1994s_treat)) + #hist for pri1994s treatment = 1
+  geom_histogram(fill = "red", color = "black", bins = 25) + 
+  labs(title = "Figure 1. Frequency distribution of TREATED PRI votes in the 1994 presidential election",
+       x = "TREATED PRI votes in 1994 presidential election",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12), # -> #PROFESSIONALISM
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) +
+  scale_x_continuous(limits = c(0, 150))
+
+ggplot(data = data.frame(pri1994s_control), aes(x = pri1994s_control)) + #hist for pri1994s treatment = 0
+  geom_histogram(fill = "blue", color = "black", bins = 25) + 
+  labs(title = "Figure 2. Frequency distribution of NONTREATED PRI votes in the 1994 presidential election",
+       x = "NONTREATED PRI votes in 1994 presidential election",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) +
+  scale_x_continuous(limits = c(0, 150))
+  
+ggplot() + 
+  geom_histogram(data = data.frame(pri1994s_treat), aes(x = pri1994s_treat), #both together
+                 fill = "red", color = "black", bins = 25, alpha = 0.5) +
+  geom_histogram(data = data.frame(pri1994s_control), aes(x = pri1994s_control), 
+                 fill = "blue", color = "black", bins = 25, alpha = 0.5) +
+  labs(title = "Figure 3. Frequency distribution of TREATED AND NONTREATED PRI votes in the 1994 presidential election",
+       x = "Total PRI votes in 1994 presidential election",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) + 
+  scale_x_continuous(limits = c(0, 150))
+```
+
+##Examining the treatment and control group distributions for variable pobtot1994
+```{r}
+pobtot1994_treat <- progresa1$pobtot1994[progresa1$treatment == 1] #setting up a dataframe for pobtot1994 treatment = 1
+pobtot1994_control <- progresa1$pobtot1994[progresa1$treatment == 0] #setting up a dataframe for pobtot1994 treatment = 0
+ggplot(data = data.frame(pobtot1994_treat), aes(x = pobtot1994_treat)) + #hist for pobtot1994 treatment = 1
+  geom_histogram(fill = "red", color = "black", bins = 100) + #using binsize = 100 // if not specified R uses 30 bins which do not yield good enough visualization.  
+  labs(title = "Figure 4. Frequency distribution of total population in TREATED precinct",
+       x = "Population in TREATED precinct",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) + 
+  scale_x_continuous(limits = c(0, 20000)) # initial limit was 0,103000 to include all the variables in the dataset. However, to better visualize what's happening in the dataset we can change limit to, for example: 0,20000 - this will sacrifice about 3 rows from our dataframe, but give us better representations of what's happening.
+
+ggplot(data = data.frame(pobtot1994_control), aes(x = pobtot1994_control)) + #hist for pobtot1994 treatment = 0
+  geom_histogram(fill = "blue", color = "black", bins = 100) + 
+  labs(title = "Figure 5. Frequency distribution of total population in UNTREATED precinct",
+       x = "Population in UNTREATED precinct",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) +
+  scale_x_continuous(limits = c(0, 20000)) 
+
+ggplot() + 
+  geom_histogram(data = data.frame(pobtot1994_treat), aes(x = pobtot1994_treat),  #both together
+                 fill = "red", color = "black", bins = 100, alpha = 0.7) +
+  geom_histogram(data = data.frame(pobtot1994_control), aes(x = pobtot1994_control), 
+                 fill = "blue", color = "black", bins = 100, alpha = 0.7) +
+  labs(title = "Figure 6. Frequency distribution of population in both TREATED AND UNTREATED precincts",
+       x = "Population in TREATED AND UNTREATED precincts",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12,),
+        axis.text = element_text(face = "bold", size = 12,)) +
+  scale_x_continuous(limits = c(0, 20000))
+```
+
+```{r}
+avgpov_treatment <- progresa1$avgpoverty[progresa1$treatment == 1]
+avgpov_control <- progresa1$avgpoverty[progresa1$treatment == 0]
+
+ggplot(data = data.frame(avgpov_treatment), aes(x = avgpov_treatment)) + #hist for avgpov treatment = 1
+  geom_histogram(fill = "red", color = "black", bins = 30) + 
+  labs(title = "Figure 7. Frequency distribution of precinct average of village poverty indices in TREATED villages",
+       x = "AVG poverty in TREATED villages",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) +
+  scale_x_continuous(limits = c(0, 6))
+
+ggplot(data = data.frame(avgpov_control), aes(x = avgpov_control)) + #hist for avgpov treatment = 0
+  geom_histogram(fill = "blue", color = "black", bins = 30) + 
+  labs(title = "Figure 8. Frequency distribution of precinct average of village poverty indices in UNTREATED villages",
+       x = "AVG poverty in UNTREATED villages",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) + 
+  scale_x_continuous(limits = c(0, 6))
+
+ggplot() + 
+  geom_histogram(data = data.frame(avgpov_treatment), aes(x = avgpov_treatment),  #both together
+                 fill = "red", color = "black", bins = 30, alpha = 0.7) +
+  geom_histogram(data = data.frame(avgpov_control), aes(x = avgpov_control), 
+                 fill = "blue", color = "black", bins = 30, alpha = 0.7) +
+  labs(title = "Figure 9. Frequency distribution of precinct average of village poverty indices in both TREATED AND UNTREATED villages",
+       x = "AVG poverty in TREATED AND UNTREATED precincts",
+       y = "Frequency") +
+  theme(plot.title = element_text(face = "bold", size = 12),
+        axis.title = element_text(face = "bold", size = 12),
+        axis.text = element_text(face = "bold", size = 12)) +
+  scale_x_continuous(limits = c(0, 6))          
+```
+###the results indicate that in the treated precincts 1) there were more PRI woters. 2) Treated precincts were more populated and also 3) poorer. The histograms indicate that there can be a relationship that's worth examining betweenpoverty and birthrates, poverty and support to certain party. Additionally, there can be a nice findings if we look into differences between health levels within treated and untreated precincts. 
+
+#Exercise 2
+##1. First regression using t2000r as the outcome variable.
+```{r}
+lm1 <- lm(t2000r ~ treatment + avgpoverty + log(pobtot1994) + t1994r + pri1994v + pan1994v + prd1994v, data=progresa1)
+plot(lm1)
+summary(lm1)
+
+```
+##2. Second regression using pri2000v as the outcome variable. 
+```{r}
+lm2 <- lm(pri2000v ~ treatment +log(pobtot1994) + avgpoverty + pri1994v + pan1994v + prd1994 + t1994r, data=progresa1)
+plot(lm2)
+summary(lm2)
+glimpse(progresa1)
+```
+### interpretations: first regression shows the effect of the program on the election turnovers. According to this model treatment has a negative effect on t2000r outcome variable. This shows that, holding all other confounders constant the program had small + also statistically insignificant effect on election outcomes. 
+
+###contrary to the first regression the second regression shows that the treatment effect had positive effect (0.8) on outcome variable. Meaning that, ceteris paribus change in treatment variable constituted to 0.8 change in PRI2000v variable.  But this effect is also statistically insignificant. However, other variables suggest that poverty, total population, and previous party affiliation had significant effects on election turnout. 
+
+#Exercise 3
+##Estimating two 95% prediction intervals for a dependent variable for a precinct 11
+``` {r}
+precinct11 <- progresa1[11,] %>%
+  dplyr::select(c("treatment", "avgpoverty", "pobtot1994", "t1994r", "pri1994v", "pan1994v", "prd1994v"))
+precinct11$pobtot1994 <- log(precinct11$pobtot1994) 
+nrow(precinct11) #check
+cat(precinct11$pobtot1994) #check
+```
+
+```{r}
+set.seed(123) #for producibility of results 
+sim <- sim(lm1,n.sims = 1000)
+simintercepts <- sim@coef[,1]
+
+expected <- NA #from session Seven and with some help of chatGPT when it comes to setting up for loops. - my for loops skills are not as good yet.
+for(i in 1:1000)
+{expected[i] <- simintercepts[i]
+  for(j in 1:7){
+    expected[i] <- expected[i] + precinct11[1,j]*sim@coef[i,j]
+  }
+}
+
+predicted <- NA #from session Seven and with some help of chatGPT when it comes to setting up for loops. - my for loops skills are not as good yet.
+for(i in 1:1000){
+predicted[i] <- simintercepts[i] + rnorm(1, mean = 0, sd = sim@sigma[i]) #stochastic component 
+  for(j in 1:7){
+    predicted[i] <- predicted[i] + precinct11[1,j]*sim@coef[i,j]
+  }
+}
+
+CIexpected <- quantile(expected, probs = c(0.025, 0.975)) #calculating the intervals
+CIpredicted <- quantile(predicted, probs = c(0.025, 0.975))
+
+#display the results
+cat("95% CI of expected values :", CIexpected, "\n") 
+cat("95% CI of predicted values :", CIpredicted, "\n")
+
+```
+
+###visualization: 
+```{r}
+expected1 <- data.frame(expected)
+ggplot(expected1, aes(x = expected)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "steelblue") +
+  geom_vline(xintercept = CIexpected[[1]], color = "#00AFBB", size = 1) +
+  geom_vline(xintercept = CIexpected[[2]], color = "#FC4E07", size = 1) +
+  labs(title = "Histogram and 95% Confidence Intervals of Expected Values", x="expected turnout")
+
+predicted1 <- data.frame(predicted)
+ggplot(predicted1, aes(x = predicted)) +
+  geom_histogram(binwidth = 5, color = "black", fill = "steelblue") +
+  geom_vline(xintercept = CIpredicted[[1]], color = "#00AFBB", size = 1) +
+  geom_vline(xintercept = CIpredicted[[2]], color = "#FC4E07", size = 1) +
+  labs(title = "Histogram and 95% Confidence Intervals of Predicted Values", x="predicted turnout")
+
+
+```
+###Simulation shows that the anticipated treatment effect in the control sample of Precinct 11 ranges from 15.11148 to 112.7539, while the predicted treatment effect's 95% confidence interval for the same sample ranges from 13.00744 to 113.9055. The difference in these intervals can be explained by the presence of stochastic term in  the predicted simulated values which show greater variance. 
+###interpretation: The second interval with a 95% confidence level, represents the predicted values of the election turnout, which includes a stochastic term/sigma. The interval spans from 13.00744 to 113.9055, indicating that we can be 95% confident that the true mean of predicted turnout values in the precinct 11 fall within this range. Unlike the first interval, the second interval accounts for the inherent uncertainty in making predictions, which can be influenced by sampling error, model assumptions, and confounders. Thus, the second interval is wider than the first.
+
+#Exercise 4 
+##Regression including an interaction term 
+```{r}
+dummyvariable<-ifelse(progresa1$prd1994v > 50,1,0)
+progresa1["interact"]<-dummyvariable
+lm3<-lm(t2000r ~ treatment + avgpoverty + log(pobtot1994) + 
+    t1994r + pri1994v + pan1994v + prd1994v + interact + I(treatment*interact), data = progresa1)
+summary(lm3)
+lm4<-lm(t2000r ~ treatment + avgpoverty + log(pobtot1994) + 
+    t1994r + pri1994v + pan1994v + prd1994v, data = progresa1) #for comparison
+summary(lm4)
+
+```
+###The interaction term allows us to see how the treatment effect changes given the value of the prd1994v variable. To achieve this I added the dummy variable that equals 1 when prd1994v was greater than 50. The coefficient of the variable "interact"  represents the difference between the cases in which interact=1 and interact=0. 
+###The algebreac representation of this variable is treatment effect = -1.4 + 4.3*interact + error. Meaning that when prd1994v>50 the *interact* variable is responsible for 4.3 times increase in treatment effect holding all other values constant. -1.4 is the treatment coefficient. 
+###Regarding the statistical significance of the treatment effect given that it equals 0.09 we can conclude that it is slightly insignificant. I believe that the statistical significance of treatment effect is conditional on interaction term, as inclusion of the interaction term lowers the initial significance level of treatment effect from 0.09 to 0.18 (lowers because higher the value less significant) which is even less significant in the areas which had shown high support for PAN party and the areas where average poverty levels were less than the mean.
+
+```{r}
+sim3<-sim(lm3,n.sims = 1000)
+plot(progresa1$treatment,progresa1$t2000r,ylim=c(0,100),
+     xlab="Treatment Indicator", ylab="2000 Household Income")
+treatmenteffect<-sim3@coef[,2] + (sim3@coef[,3]*sim3@coef[,10])
+for (i in 1:1000){
+  abline(sim3@coef[i,1],treatmenteffect[i],col="steelblue",lwd=0.09)
+}
+mean1<-mean(sim3@coef[i,1])
+mean2<-mean(treatmenteffect)
+abline(mean1,mean2,col="#FC4E07",lwd=5)
+title("Simulated treatment effect relationships")
+```
+
+#Exercise 5
+##part 1
+```{r}
+names(progresa1)
+model1<-glm(t2000r~treatment+log(pobtot1994)+avgpoverty+I(treatment*avgpoverty),data=progresa1)
+model1
+errormodel1 <- cv.glm(progresa1,model1)
+errormodel1$delta 
+```
+##part 2
+```{r}
+model2<-glm(t2000r ~ treatment + log(pobtot1994) + avgpoverty + I(avgpoverty^2) + I(treatment*avgpoverty^2), data=progresa1)
+model2
+error<-cv.glm(progresa1, model2)
+error$delta
+```
+###The cross-validation errors for the two models are similar, coming in at about 71.8 and 71.9, respectively, showing that their predictive abilities are similar. The difference maker in these two model is that Avgpoverty^2, and an interaction between treatment and avgpoverty^2 are present in Model 2. This implies that there may not be a linear connection between poverty and outcome and that the treatment's effectiveness may change with the degree of poverty. To predict the outcome t2000r and comprehend the relationship between poverty, treatment, and the outcome variable in this situation, Model 2 might be a better option. However, one would need to examine the covariance between existing variables furtherly for the conclusion to be robust. 
